@@ -3,5 +3,10 @@
 
 #include<inflating.h>
 
-// TODO
+int inflate_deb(const char *pathname)
+{
+  char *cmd = malloc(6 + strlen(pathname));
+  sprintf(AR_UNZIP, pathname);
+  return system(cmd);
+}
 
