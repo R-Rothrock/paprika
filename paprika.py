@@ -2,6 +2,7 @@
 # paprika.py
 # https://github.com/R-Rothrock/paprika
 
+from datetime import datetime
 from os import chdir, mkdir, system
 import sys
 
@@ -72,32 +73,56 @@ else:
 class Logger:
     def __init__(self, stream=sys.stdout):
         self.stream = stream
-        
-        # TODO (I can't remember these things for the life of me)
-        self.blue   = 
-        self.green  = 
-        self.red    = 
-        self.yellow = 
-        self.reset  =
 
-    def __get_time(self):
-        return # TODO
+        self.blue   = "\033[34m"
+        self.cyan   = "\033[36m"
+        self.green  = "\033[32m"
+        self.red    = "\033[31m"
+        self.yellow = "\033[33m"
+        self.reset  = "\033[39m"
 
-    def debug(self):
-        return # TODO
+    def __get_time(self) -> str:
+        now = datetime.now()
+        return now.strftime("%H:%M:%S")
 
-    def info(self):
-        return # TODO
+    def __get_time_field(self) -> str:
+        return "[%s%s%s]" % (self.blue, self.__get_time(), self.reset)
 
-    def warning(self):
-        return # TODO
+    def debug(self, msg):
+        print("%s[%sDEBUG%s]:\t%s" % (
+            self.__get_time_field(), self.cyan, self.reset, msg
+        ))
+
+    def info(self, msg):
+        print("%s[%sINFO%s]:\t%s"% (
+            self.__get_time_field(), self.green, self.reset, msg
+        ))
+
+    def warning(self, msg):
+        print("%s[%sWARNING%s]:\t%s" % (
+            self.__get_time_field(), self.yellow, self.reset, msg
+        ))
     
-    def critical(self):
-        return # TODO
+    def critical(self, msg):
+        print("%s[%sCRITICAL%s]:\t%s" % (
+            self.__get_time_field(), self.red, self.reset, msg
+        ))
+
+    def error(self, msg):
+        print("%s[%sERROR%s]:\t%s" % (
+            self.__get_time_field(), self.red, self.reset, msg
+        ))
+
+# test
+#if __name__ == "__main__":
+#    l = Logger()
+#    l.debug("Debugging message")
+#    l.info("Informational message")
+#    l.warning("Warning message")
+#    l.critical("Critical message")
+#    l.error("Segmentation Fault")
 
 #%% Execution
-
-l = Logger()
 
 # TODO
 
