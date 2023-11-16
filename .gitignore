@@ -1,4 +1,1 @@
 test_pkg/
-*.o
-*.out
-paprika/ # old stuff I shouldn't need but have anyway
