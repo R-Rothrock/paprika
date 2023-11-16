@@ -8,6 +8,8 @@ import sys
 
 #%% Getting things ready
 
+DEBUG = True
+
 MIN_ARGC = 3
 MAX_ARGC = 3
 
@@ -28,7 +30,7 @@ if len(sys.argv) < MIN_ARGC or len(sys.argv) > MAX_ARGC:
 
 if is_debianesque():
     
-    class FileData:
+    class Actions:
         tmp_dir = "/tmp/paprika_" + sys.argv[2]
 
         def unzip(tmp_directory):
@@ -42,7 +44,7 @@ if is_debianesque():
 
 else:
 
-    class FileData:
+    class Actions:
         tmp_dir = "/tmp/paprika_" + sys.argv[2]
 
         def unzip(tmp_directory):
@@ -71,8 +73,10 @@ else:
 #%% Logging system
 
 class Logger:
-    def __init__(self, stream=sys.stdout):
+    def __init__(self, stream=sys.stdout, debug=True):
         self.stream = stream
+
+        self.debug = debug
 
         self.blue   = "\033[34m"
         self.cyan   = "\033[36m"
@@ -89,6 +93,8 @@ class Logger:
         return "[%s%s%s]" % (self.blue, self.__get_time(), self.reset)
 
     def debug(self, msg):
+        if self.debug:
+            return
         print("%s[%sDEBUG%s]:\t%s" % (
             self.__get_time_field(), self.cyan, self.reset, msg
         ))
@@ -124,5 +130,19 @@ class Logger:
 
 #%% Execution
 
-# TODO
+l = Logger(debug=DEBUG)
+
+# confirming that files exists
+try:
+    with open(sys.argv[1], "r") as stream:
+        pass
+except FileNotFoundError:
+    l.error("file %s doesn't exist. Exiting..." % (sys.argv[1]))
+try:
+    with open(sys.argv[2], "r") as stream:
+        pass
+except FileNotFoundError:
+    l.error("file %s doesn't exist. Exiting..." % (sys.argv[2]))
+
+
 
