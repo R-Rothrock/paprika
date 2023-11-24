@@ -3,7 +3,7 @@
 # https://github.com/R-Rothrock/paprika
 
 from datetime import datetime
-from os import chdir, mkdir, system
+from os import chdir, getcwd, mkdir, system
 import sys
 
 #%% Getting things ready
@@ -28,47 +28,84 @@ if len(sys.argv) < MIN_ARGC or len(sys.argv) > MAX_ARGC:
     print("USAGE: %s [EXECUTABLE] [.DEB FILE]" % (sys.argv[0]))
     sys.exit()
 
+PREINST_PATH  = ""
+POSTINST_PATH = ""
+DATA_PATH     = ""
+
 if is_debianesque():
     
     class Actions:
         tmp_dir = "/tmp/paprika_" + sys.argv[2]
 
-        def unzip(tmp_directory):
-            mkdir(tmp_directory)
+        def unzip(tmp_dir):
+            mkdir(tmp_dir)
             system("dpkg-deb -R %s %s" % (sys.argv[2], tmp_directory))
         
-        preinst_path = tmp_dir + "/DEBIAN/preinst"
+            # setting global variables
+            global PREINST_PATH, POSTINST_PATH, DATA_PATH
+            PREINST_PATH  = tmp_dir + "/DEBIAN/preinst"
+            POSTINST_PATH = tmp_dir + "/DEBIAN/postinst"
+            DATA_PATH     = tmp_dir
 
-        def rezip(tmp_directory):
-            system("dpkg-deb -b ", tmp_directory)
+        def rezip(tmp_directory) -> str:
+            """
+            returns path to new `.deb` file
+            """
+            system("dpkg-deb -b %s" % (tmp_directory))
 
 else:
 
     class Actions:
-        tmp_dir = "/tmp/paprika_" + sys.argv[2]
+        wdir = "/tmp/paprika_" + sys.argv[2]
 
-        def unzip(tmp_directory):
-            mkdir(tmp_directory)
-            system("cp %s %s" % (sys.argv[2], tmp_directory))
+        def unzip(tmp_dir):
+            mkdir(tmp_dir)
 
-    """ old code I'm still referencing
-    mkdir(tmp_dir)
-    system("mv %s %s" % (sys.argv[2], tmp_dir))
-    chdir(tmp_dir)
-    system("ar -x %s # I _think_ this is the command..." % (sys.argv[2]))
-    # zips should be .gz or .xz
-    # no support for anything else
-    # lacks error checking
-    system("gzip -d *.gz")
-    system("xz -d *.gz")
+            # copying
+            system("cp %s %s" % (sys.argv[2], wdir))
+            deb_file = sys.argv[2].split("/")[-1]
+            
+            prev_dir = getcwd()
+            chdir(tmp_dirf)
 
-    # extracting tars
-    system("tar -xf control.tar -C ./control/")
-    system("tar -xf data.tar -C ./data/")
+            # unzipping .deb
+            system("ar -x %s" % (deb_file))
+           
+            # unzipping `control.tar.gz` & `data.tar.gz`
+            system("gzip -d *.gz")
+            mkdir("control")
+            mkdir("data")
+            system("tar -xf control.tar --directory control")
+            system("tar -xf data.tar --directory data")
+            
+            chdir(prev_dir)
 
-    # remove `md5sum` file if there is one
-    system("rm ./control/md5sums")
-    """
+            # setting global variables
+            global PREINST_PATH, POSTINST_PATH, DATA_PATH
+            PREINST_PATH  = tmp_dir + "/control/preinst"
+            POSTINST_PATH = tmp_dir + "/control/postinst"
+            DATA_PATH     = tmp_dir + "/data"
+
+        def rezip(tmp_directory) -> str:
+            """
+            returns path to new `.deb` file
+            """
+            prev_dir = getcwd()
+            chdir(tmp_directory)
+
+            # tar
+            system("tar -c control -f control.tar")
+            system("tar -c data -f data.tar")
+            system("rm -rf control data")
+
+            # gzip
+            system("gzip control.tar")
+            system("gzip data.tar")
+
+            # ar
+            system("ar -r new.deb debian_binary control.tar.gz data.tar.gz")
+
+            return getcwd() + "new.deb"
 
 #%% Logging system
 
@@ -127,6 +164,7 @@ class Logger:
 #    l.warning("Warning message")
 #    l.critical("Critical message")
 #    l.error("Segmentation Fault")
+
 
 #%% Execution
 
