@@ -3,7 +3,7 @@
 # https://github.com/R-Rothrock/paprika
 
 from datetime import datetime
-from os import chdir, getcwd, mkdir, system
+from os import chdir, getcwd, mkdir, system, walk
 import sys
 
 #%% Getting things ready
@@ -13,101 +13,92 @@ DEBUG = True
 MIN_ARGC = 3
 MAX_ARGC = 3
 
-def is_debianesque() -> bool:
-    """
-    Whether or not the system is Debian-esque and has the required
-    programs.
-    This is done via searching for `/usr/bin/dpkg-deb`, which is the
-    program in question.
-    Returns a boolean.
-    """
-
-    return True # TODO try
-
 if len(sys.argv) < MIN_ARGC or len(sys.argv) > MAX_ARGC:
     print("USAGE: %s [EXECUTABLE] [.DEB FILE]" % (sys.argv[0]))
     sys.exit()
 
-PREINST_PATH  = ""
-POSTINST_PATH = ""
-DATA_PATH     = ""
+#%% File Handling System
 
-if is_debianesque():
+class DebHandler:
+    def __init__(self):
+        self.wdir = "/tmp/paprika_" + sys.argv[2]
     
-    class Actions:
-        tmp_dir = "/tmp/paprika_" + sys.argv[2]
+    def unzip(self) -> tuple:
+        """
+        Returns path to `preinst1, path to `postinst`, and the
+        path to `data`.
+        """
+        mkdir(self.wdir)
 
-        def unzip(tmp_dir):
-            mkdir(tmp_dir)
-            system("dpkg-deb -R %s %s" % (sys.argv[2], tmp_directory))
-        
-            # setting global variables
-            global PREINST_PATH, POSTINST_PATH, DATA_PATH
-            PREINST_PATH  = tmp_dir + "/DEBIAN/preinst"
-            POSTINST_PATH = tmp_dir + "/DEBIAN/postinst"
-            DATA_PATH     = tmp_dir
-
-        def rezip(tmp_directory) -> str:
-            """
-            returns path to new `.deb` file
-            """
-            system("dpkg-deb -b %s" % (tmp_directory))
-
-else:
-
-    class Actions:
-        wdir = "/tmp/paprika_" + sys.argv[2]
-
-        def unzip(tmp_dir):
-            mkdir(tmp_dir)
-
-            # copying
-            system("cp %s %s" % (sys.argv[2], wdir))
-            deb_file = sys.argv[2].split("/")[-1]
+        # copying
+        system("cp %s %s" % (sys.argv[2], wdir))
+        deb_file = sys.argv[2].split("/")[-1]
             
-            prev_dir = getcwd()
-            chdir(tmp_dirf)
+        prev_dir = getcwd()
+        chdir(self.wdir)
 
-            # unzipping .deb
-            system("ar -x %s" % (deb_file))
+        # unzipping .deb
+        system("ar -x %s" % (deb_file))
            
-            # unzipping `control.tar.gz` & `data.tar.gz`
-            system("gzip -d *.gz")
-            mkdir("control")
-            mkdir("data")
-            system("tar -xf control.tar --directory control")
-            system("tar -xf data.tar --directory data")
+        # unzipping `control.tar.gz`
+        system("gzip -d control.tar.gz")
             
-            chdir(prev_dir)
+        # unzipping `data.(tar|tar.gz|tar.bzip|tar.lzma)`
+        # by method of reading file extention
 
-            # setting global variables
-            global PREINST_PATH, POSTINST_PATH, DATA_PATH
-            PREINST_PATH  = tmp_dir + "/control/preinst"
-            POSTINST_PATH = tmp_dir + "/control/postinst"
-            DATA_PATH     = tmp_dir + "/data"
+        files = []
+        for (dirpath, dirnames, filenames) in walk(self.wdir):
+            f.extend(filenames)
+            break
 
-        def rezip(tmp_directory) -> str:
-            """
-            returns path to new `.deb` file
-            """
-            prev_dir = getcwd()
-            chdir(tmp_directory)
+        ext = ""
+        for file in files:
+            if file.startswith("data.tar"):
+                ext = file.replace("data.tar", "", 1)
 
-            # tar
-            system("tar -c control -f control.tar")
-            system("tar -c data -f data.tar")
-            system("rm -rf control data")
+        match ext:
+            case "":
+                pass
+            case ".gz":
+                system("gzip -d data.tar.gz")
+            case ".bz2":
+                system("bzip2 -d data.tar.bz2")
+            case ".lzma":
+                system("unlzma data.tar.lzma")
 
-            # gzip
-            system("gzip control.tar")
-            system("gzip data.tar")
+        mkdir("control")
+        mkdir("data")
+        system("tar -xf control.tar --directory control")
+        system("tar -xf data.tar --directory data")
+            
+        chdir(prev_dir)
+        
+        yield self.wdir + "/control/preinst"
+        yield self.wdir + "/control/postinst"
+        yield self.wdir + "/data"
 
-            # ar
-            system("ar -r new.deb debian_binary control.tar.gz data.tar.gz")
+    def rezip(self) -> str:
+        """
+        returns path to new `.deb` file
+        """
+        prev_dir = getcwd()
+        chdir(self.wdir)
 
-            return getcwd() + "new.deb"
+        # tar
+        system("tar -c control -f control.tar")
+        system("tar -c data -f data.tar")
+        system("rm -rf control data")
 
-#%% Logging system
+        # gzip
+        system("gzip control.tar")
+        system("gzip data.tar")
+
+        # ar
+        system("ar -r new.deb debian_binary control.tar.gz data.tar.gz")
+
+        return getcwd() + "new.deb"
+
+#%% Logging System
 
 class Logger:
     def __init__(self, stream=sys.stdout, debug=True):
@@ -168,6 +159,7 @@ class Logger:
 
 #%% Execution
 
+h = DebHandler()
 l = Logger(debug=DEBUG)
 
 # confirming that files exists
@@ -175,12 +167,27 @@ try:
     with open(sys.argv[1], "r") as stream:
         pass
 except FileNotFoundError:
-    l.error("file %s doesn't exist. Exiting..." % (sys.argv[1]))
+    l.error("File `%s` doesn't exist. Exiting..." % (sys.argv[1]))
 try:
     with open(sys.argv[2], "r") as stream:
         pass
 except FileNotFoundError:
-    l.error("file %s doesn't exist. Exiting..." % (sys.argv[2]))
+    l.error("File `%s` doesn't exist. Exiting..." % (sys.argv[2]))
 
+# recognizing file type of fist argument
 
+if sys.argv[1].endswith(".ko"):
+    # option 2
+    # loading a kernel module.
+    pass
+
+elif sys.argv[1].endswith(".service"):
+    # option 3
+    # enabling and starting a service file.
+    pass
+
+else:
+    # option 1
+    # running a program as root
+    pass
 
