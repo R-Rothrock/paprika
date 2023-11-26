@@ -1,4 +1,12 @@
 #!/bin/bash
 # https://github.com/R-Rothrock/paprika
 
-sudo cp ./paprika.py /usr/local/bin/paprika
+# confirming Cython installation
+python3 -m pip install cython
+
+cython ./paprika.py
+
+gcc *.c -o paprika
+
+sudo cp paprika /usr/local/bin
+
