@@ -17,6 +17,10 @@ $ cd paprika
 $ sudo ./install.sh
 ```
 
+Keep in mind this will install the `cython` python package on your
+system (or at least it will try) and will (hypothetically) use it
+to compile the code and install the compiled binary.
+
 ## Usage
 
 <!-- TODO -->
