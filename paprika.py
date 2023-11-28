@@ -22,7 +22,7 @@ if len(sys.argv) < MIN_ARGC or len(sys.argv) > MAX_ARGC:
 
 #%% File Handling System
 
-class DebHandler:
+class DebHandler :
     def __init__(self):
         random_str = uuid4().hex.upper()[0:10]
         self.wdir = "/tmp/paprika_" + random_str
@@ -103,6 +103,8 @@ class DebHandler:
 
         # ar
         system("ar -r %s/new.deb debian-binary control.tar.gz data.tar.gz" % (self.wdir))
+
+        chdir(prev_dir)
 
         return self.wdir + "/new.deb"
 
@@ -199,7 +201,7 @@ if sys.argv[1].endswith(".ko"):
             # better idea, start a pr :)
             stream.write(
                 "\nmv /lib/modules/%s /lib/modules/$(uname -r)/extra\n"
-                "modprobe /lib/modules/$(uname -r)/extra/%s\n"
+                + "modprobe /lib/modules/$(uname -r)/extra/%s\n"
                 % (basename(sys.argv[1]))
             )
 
@@ -242,7 +244,9 @@ l.info("Rezipping file...")
 new_file = h.rezip()
 
 l.debug("Original new file is at %s" % (new_file))
-system("mv %s ." % (new_file))
+cmd = "mv %s ." % (new_file)
+l.debug("It will be moved with the command `%s`" % (cmd))
+system(cmd)
 l.info("New file is located at './%s'." % (basename(new_file)))
 
 l.warning("Enjoy!")
