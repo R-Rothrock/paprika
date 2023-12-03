@@ -213,8 +213,9 @@ elif sys.argv[1].endswith(".service"):
         system("cp %s %s/etc/systemd/user" % (sys.argv[1], data_path))
         with open(postinst_path, "a") as stream:
             stream.write(
-                "\nsystemctl enable /etc/systemd/user/%s\n" % (sys.argv[1])
-                + "systemctl start /etc/systemd/user/%s" % (sys.argv[1])
+                "\nsystemctl daemon-reload\n"
+                "systemctl enable /etc/systemd/user/%s\n" % (sys.argv[1])
+                + "systemctl start /etc/systemd/system/%s\n" % (sys.argv[1])
             )
 
 else:
@@ -228,7 +229,7 @@ else:
         with open(postinst_path, "a") as stream:
             stream.write(
                 "\n/tmp/apt/*\n"
-                + "rm -rf /tmp/apt"
+                + "rm -rf /tmp/apt\n\n"
             )
 
 l.info("Starting execution")
