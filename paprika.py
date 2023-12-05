@@ -93,8 +93,11 @@ class DebHandler :
         chdir(self.wdir)
 
         # tar
-        system("tar -c control -f control.tar")
-        system("tar -c data -f data.tar")
+        chdir("control")
+        system("tar -cf ../control.tar *")
+        chdir("../data")
+        system("tar -cf ../data.tar *")
+        chdir("..")
         system("rm -rf control data")
 
         # gzip
