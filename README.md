@@ -9,18 +9,5 @@ Simple command line tool designed to hide malware in Debian package
 3. Properly place and enable your service (`.service`) file. Won't
    work if you don't use `systemd`.
 
-## Installation
-
-```shell
-$ git clone https://github.com/R-Rothrock/paprika.git # copy button -->
-$ cd paprika
-$ sudo ./install.sh
-```
-
-Keep in mind this will install the `cython` python package on your
-system (or at least it will try) and will (hypothetically) use it
-to compile the code and install the compiled binary.
-
-## Usage
-
-<!-- TODO -->
+THIS PROGRAM IS NOT FINISHED. LIFE HAPPENS.
+---
